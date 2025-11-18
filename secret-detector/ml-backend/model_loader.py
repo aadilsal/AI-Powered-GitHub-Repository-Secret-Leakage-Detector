@@ -15,10 +15,13 @@ def load_model(path: str = None):
         path = os.path.join(base, '..', '..', 'secret_detector_model.pkl')
         path = os.path.abspath(path)
 
+    print(f"model_loader: attempting to load model from {path}")
+
     if not os.path.exists(path):
         raise FileNotFoundError(f"Model file not found at {path}")
 
     _model = joblib.load(path)
+    print("model_loader: model loaded successfully")
     return _model
 
 

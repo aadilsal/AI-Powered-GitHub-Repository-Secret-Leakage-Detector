@@ -13,6 +13,7 @@ export default function ResultsPage() {
   const scanId = params?.get("scanId") || "";
   const qc = useQueryClient();
   const data: any = qc.getQueryData(["scan", scanId]);
+  console.log(`ResultsPage: loaded scanId=${scanId} dataFound=${!!data}`);
 
   const [severity, setSeverity] = useState("ALL");
   const [type, setType] = useState("ALL");
@@ -38,6 +39,7 @@ export default function ResultsPage() {
   });
 
   const onDownload = async () => {
+    console.log('ResultsPage: download requested for', scanId);
     const res = await fetch("/api/download-report", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

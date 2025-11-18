@@ -30,6 +30,7 @@ async def startup_event():
 @app.post('/predict', response_model=PredictOut)
 async def predict(inobj: TextIn):
     text = inobj.text or ""
+    print(f"ML server: /predict called text_len={len(text)}")
     features = extract_features(text)
 
     model = get_model()
@@ -48,12 +49,13 @@ async def predict(inobj: TextIn):
                 confidence = float(proba[0].max())
         else:
             confidence = 0.5
-
         pred = int(model.predict([features])[0])
+        print(f"ML server: prediction={pred} confidence={confidence}")
     except Exception as e:
         # fallback: return neutral
         pred = 0
         confidence = 0.0
+        print(f"ML server: prediction failed: {e}")
 
     return PredictOut(prediction=pred, confidence=confidence, features=features)
 

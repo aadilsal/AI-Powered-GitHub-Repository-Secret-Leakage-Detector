@@ -46,6 +46,8 @@ def extract_features(text: str):
     github_flag = 1 if GITHUB_PAT.search(s) else 0
     jwt_flag = 1 if JWT.search(s) else 0
 
+    print(f"feature_extractor: computed features length={length} entropy={entropy:.3f} aws_flag={aws_flag} github_flag={github_flag} jwt_flag={jwt_flag}")
+
     # Return feature list in the same order expected by the model
     features = [
         length,
