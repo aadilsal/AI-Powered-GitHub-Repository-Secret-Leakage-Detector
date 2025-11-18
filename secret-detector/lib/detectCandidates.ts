@@ -1,140 +1,132 @@
 import * as fs from 'fs';
-import { Candidate } from '@/types';
 import { isTextFile } from './walkFiles';
+import { classifyByRegex } from './classifyByRegex';
+import { calculateEntropy } from './entropy';
+import { ScanFinding } from '@/types/ScanTypes';
 
-const SECRET_KEYWORDS = [
+const SUSPICIOUS_VARS = [
+  'secret',
   'password',
   'passwd',
   'pwd',
-  'secret',
   'token',
-  'api_key',
-  'apikey',
-  'access_key',
-  'private_key',
-  'auth',
-  'credentials',
+  'api',
   'key',
+  'auth',
 ];
 
-/**
- * Calculate Shannon entropy of a string
- * Higher entropy often indicates more random/encrypted data (like secrets)
- * @param str
- * @returns
- */
-function calculateEntropy(str: string): number {
-  const len = str.length;
-  const frequencies: { [key: string]: number } = {};
+const URL_LIKE = /https?:\/\/|www\.|:\/\//i;
+const CSS_CLASS = /class=\"[\w\- ]+\"|className=\"[\w\- ]+\"/i;
+const HTML_ATTR = /<[^>]+>/;
 
-  for (let i = 0; i < len; i++) {
-    const char = str[i];
-    frequencies[char] = (frequencies[char] || 0) + 1;
-  }
+function extractValue(line: string): string | null {
+  // quoted values
+  const quoted = line.match(/["'`]([^"'`]{8,})["'`]/);
+  if (quoted && quoted[1]) return quoted[1];
 
-  // Calculate entropy
-  let entropy = 0;
-  for (const char in frequencies) {
-    const freq = frequencies[char] / len;
-    entropy -= freq * Math.log2(freq);
-  }
+  // key = value or key: value
+  const assign = line.match(/[=:\s]\s*([A-Za-z0-9\-_.+\/=]{8,})/);
+  if (assign && assign[1]) return assign[1];
 
-  return entropy;
+  return null;
 }
 
-/**
- * Check if a line contains potential secret indicators
- * @param line
- * @returns
- */
-function hasSecretIndicators(line: string): boolean {
-  const lowerLine = line.toLowerCase();
-  
-  // Check for secret keywords
-  for (const keyword of SECRET_KEYWORDS) {
-    if (lowerLine.includes(keyword)) {
-      return true;
-    }
-  }
-  
-  return false;
-}
+// severity scoring is handled by scoreSecret; kept here previously but now unused
 
-/**
- * Extract the potential secret value from a line
- * Looks for patterns like: key="value", key: "value", key=value, etc.
- * @param line 
- * @returns 
- */
-function extractValue(line: string): string {
-  // Try to extract quoted strings
-  const quotedMatch = line.match(/["'`]([^"'`]+)["'`]/);
-  if (quotedMatch && quotedMatch[1]) {
-    return quotedMatch[1];
-  }
+export async function detectCandidates(filePaths: string[]): Promise<ScanFinding[]> {
+  const findings: ScanFinding[] = [];
 
-  // Try to extract value after = or :
-  const assignMatch = line.match(/[=:]\s*([^\s;,]+)/);
-  if (assignMatch && assignMatch[1]) {
-    return assignMatch[1];
-  }
-
-  // Return the trimmed line
-  return line.trim();
-}
-
-/**
- * Detect potential secret candidates in files
- * @param filePaths
- * @returns
- */
-export function detectCandidates(filePaths: string[]): Candidate[] {
-  const candidates: Candidate[] = [];
+  console.log(`Starting detectCandidates on ${filePaths.length} files`);
 
   for (const filePath of filePaths) {
     try {
-      // Skip non-text files
-      if (!isTextFile(filePath)) {
-        continue;
-      }
+      console.log(`Scanning file: ${filePath}`);
+      if (!isTextFile(filePath)) continue;
 
-      // Read file content
       const content = fs.readFileSync(filePath, 'utf-8');
       const lines = content.split('\n');
 
-      // Scan each line
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmedLine = line.trim();
+        const raw = lines[i];
+        const line = raw.trim();
 
-        // Skip empty lines and comments
-        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) {
+        if (!line) continue;
+        if (line.startsWith('//') || line.startsWith('#') || line.startsWith('/*') || line.startsWith('*')) continue;
+        if (URL_LIKE.test(line)) continue; // skip URLs
+        if (CSS_CLASS.test(line) || HTML_ATTR.test(line)) continue; // skip markup
+
+        // First, run regex classifier against whole line
+        const regexResult = classifyByRegex(line);
+        if (regexResult.matched) {
+          const matchedText = regexResult.match || line;
+          const entropy = calculateEntropy(matchedText);
+          console.log(`Regex matched in ${filePath}:${i+1} -> ${regexResult.type} match=${matchedText.slice(0,60)}`);
+          // call ML
+          console.log('Calling ML for regex match...');
+          const ml = await import('./mlClient').then(m => m.predictWithML(matchedText)).catch((err) => {
+            console.error('ML call failed:', err?.message || err);
+            return { prediction: 0, confidence: 0 };
+          });
+          console.log(`ML returned confidence=${ml.confidence}`);
+          const { score, severity } = await import('./scoreSecret').then(s => s.scoreSecret({ regexMatch: regexResult.match, entropy, mlConfidence: ml.confidence }));
+          console.log(`Computed hybrid score=${score} severity=${severity}`);
+          const finding: ScanFinding = {
+            filePath,
+            lineNumber: i + 1,
+            content: line.substring(0, 1000),
+            entropy,
+            regexMatch: regexResult.match,
+            secretType: regexResult.type || 'GENERIC',
+            mlConfidence: ml.confidence,
+            hybridScore: score,
+            severity,
+          };
+          findings.push(finding);
           continue;
         }
 
-        // Check if line has secret indicators
-        if (hasSecretIndicators(line)) {
-          const value = extractValue(line);
+        // Try to extract probable token/value from line
+        const value = extractValue(line);
+        if (!value) continue;
 
-          // Check if value is long enough and has high entropy
-          if (value.length > 20) {
-            const entropy = calculateEntropy(value);
+        // Reject long identifiers (like long HTML ids) and obvious false positives
+        if (value.length > 200) continue;
 
-            if (entropy > 3.5) {
-              candidates.push({
-                filePath,
-                lineNumber: i + 1,
-                candidateString: trimmedLine.substring(0, 200), // Limit to 200 chars
-                reason: `High entropy (${entropy.toFixed(2)}) with secret keyword`,
-              });
-            }
-          }
-        }
+        // Quick heuristic: only consider if suspicious var names or keywords present
+        const lower = line.toLowerCase();
+        const hasSuspiciousName = SUSPICIOUS_VARS.some((v) => lower.includes(v));
+        if (!hasSuspiciousName) continue;
+
+        const entropy = calculateEntropy(value);
+        if (entropy <= 3.5) continue; // skip low entropy
+
+        // call ML for non-regex candidates as well
+        console.log(`Heuristic candidate in ${filePath}:${i+1} value=${value.slice(0,60)} entropy=${entropy}`);
+        console.log('Calling ML for heuristic candidate...');
+        const ml = await import('./mlClient').then(m => m.predictWithML(value)).catch((err) => {
+          console.error('ML call failed:', err?.message || err);
+          return { prediction: 0, confidence: 0 };
+        });
+        console.log(`ML returned confidence=${ml.confidence}`);
+        const { score, severity } = await import('./scoreSecret').then(s => s.scoreSecret({ regexMatch: undefined, entropy, mlConfidence: ml.confidence }));
+        console.log(`Computed hybrid score=${score} severity=${severity}`);
+        const finding: ScanFinding = {
+          filePath,
+          lineNumber: i + 1,
+          content: line.substring(0, 1000),
+          entropy,
+          secretType: 'GENERIC',
+          mlConfidence: ml.confidence,
+          hybridScore: score,
+          severity,
+        };
+
+        findings.push(finding);
       }
-    } catch (error) {
-      console.error(`Error scanning file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch (err) {
+      console.error(`Error scanning file ${filePath}: ${err instanceof Error ? err.message : 'Unknown'}`);
     }
   }
 
-  return candidates;
+  return findings;
 }

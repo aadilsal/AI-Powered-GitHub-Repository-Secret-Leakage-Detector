@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { extractZip, cleanupExtract } from '@/lib/extractZip';
 import { walkFiles } from '@/lib/walkFiles';
 import { detectCandidates } from '@/lib/detectCandidates';
-import { ScanResult } from '@/types';
+import { RepoScanResponse } from '@/types/ScanTypes';
 
 export async function POST(request: NextRequest) {
   let extractPath: string | null = null;
@@ -16,11 +16,13 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         {
-          success: false,
+          repo: undefined,
+          totalFiles: 0,
+          totalFindings: 0,
+          findings: [],
+          stats: { aws: 0, github_tokens: 0, jwt: 0, stripe: 0, database: 0 },
           error: 'No file provided',
-          candidates: [],
-          filesScanned: 0,
-        } as ScanResult,
+        },
         { status: 400 }
       );
     }
@@ -29,11 +31,13 @@ export async function POST(request: NextRequest) {
     if (!file.name.endsWith('.zip')) {
       return NextResponse.json(
         {
-          success: false,
+          repo: undefined,
+          totalFiles: 0,
+          totalFindings: 0,
+          findings: [],
+          stats: { aws: 0, github_tokens: 0, jwt: 0, stripe: 0, database: 0 },
           error: 'Only ZIP files are supported',
-          candidates: [],
-          filesScanned: 0,
-        } as ScanResult,
+        },
         { status: 400 }
       );
     }
@@ -54,20 +58,31 @@ export async function POST(request: NextRequest) {
 
     // Detect secret candidates
     console.log('Detecting secret candidates...');
-    const candidates = detectCandidates(filePaths);
-    console.log(`Found ${candidates.length} potential secret candidates`);
+    const findings = await detectCandidates(filePaths);
+    console.log(`Found ${findings.length} potential secret candidates`);
 
     // Clean up extracted files
     if (extractPath) {
       cleanupExtract(extractPath);
     }
 
-    // Return results
-    const result: ScanResult = {
-      success: true,
-      candidates,
-      filesScanned: filePaths.length,
-      scanPath: file.name,
+    // Build stats
+    const stats: Record<string, number> = { aws: 0, github_tokens: 0, jwt: 0, stripe: 0, database: 0 };
+    for (const f of findings) {
+      const t = (f.secretType || '').toLowerCase();
+      if (t.includes('aws')) stats.aws += 1;
+      else if (t.includes('gh') || t.includes('github')) stats.github_tokens += 1;
+      else if (t.includes('jwt')) stats.jwt += 1;
+      else if (t.includes('stripe')) stats.stripe += 1;
+      else if (t.includes('mongo') || t.includes('postgres') || t.includes('redis') || t.includes('db')) stats.database += 1;
+    }
+
+    const result: RepoScanResponse = {
+      repo: file.name,
+      totalFiles: filePaths.length,
+      totalFindings: findings.length,
+      findings,
+      stats,
     };
 
     return NextResponse.json(result, { status: 200 });
@@ -79,13 +94,14 @@ export async function POST(request: NextRequest) {
 
     console.error('Scan error:', error);
 
-    const result: ScanResult = {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
-      candidates: [],
-      filesScanned: 0,
+    const result: RepoScanResponse = {
+      repo: undefined,
+      totalFiles: 0,
+      totalFindings: 0,
+      findings: [],
+      stats: { aws: 0, github_tokens: 0, jwt: 0, stripe: 0, database: 0 },
     };
 
-    return NextResponse.json(result, { status: 500 });
+    return NextResponse.json({ ...result, error: error instanceof Error ? error.message : 'Unknown error occurred' }, { status: 500 });
   }
 }
