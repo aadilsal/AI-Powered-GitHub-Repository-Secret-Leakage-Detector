@@ -8,11 +8,11 @@ export async function POST(request: NextRequest) {
   let extractPath: string | null = null;
 
   try {
-    // Parse multipart form data
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
-    // Validate input
+
     if (!file) {
       return NextResponse.json(
         {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
+
     if (!file.name.endsWith('.zip')) {
       return NextResponse.json(
         {
@@ -44,7 +44,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`Starting scan for uploaded file: ${file.name}`);
 
-    // Convert file to buffer
+
+    const size = (file as any).size || 0;
+    if (size > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Uploaded ZIP exceeds maximum size of 50MB' }, { status: 400 });
+    }
+
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Clean up extracted files
     if (extractPath) {
-      cleanupExtract(extractPath);
+      await cleanupExtract(extractPath);
     }
 
     // Build stats
@@ -89,7 +95,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Clean up on error
     if (extractPath) {
-      cleanupExtract(extractPath);
+      await cleanupExtract(extractPath);
     }
 
     console.error('Scan error:', error);

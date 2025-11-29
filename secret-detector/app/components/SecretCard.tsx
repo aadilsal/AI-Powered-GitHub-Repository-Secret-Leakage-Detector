@@ -3,6 +3,7 @@ import React from "react";
 import SeverityBadge from "./SeverityBadge";
 import FilePathDisplay from "./FilePathDisplay";
 import EntropyBar from "./EntropyBar";
+import { motion } from "framer-motion";
 
 export default function SecretCard({
   finding,
@@ -12,7 +13,7 @@ export default function SecretCard({
   onOpen: (f: any) => void;
 }) {
   return (
-    <div className="bg-white rounded-md p-3 shadow-sm flex items-start justify-between gap-4">
+    <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-md p-3 shadow-sm flex items-start justify-between gap-4">
       <div className="flex-1">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -40,6 +41,6 @@ export default function SecretCard({
           Open
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }

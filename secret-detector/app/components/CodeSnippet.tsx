@@ -1,7 +1,5 @@
 "use client";
 import React from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 export default function CodeSnippet({
   code,
@@ -10,17 +8,17 @@ export default function CodeSnippet({
   code: string;
   highlight?: string | null;
 }) {
-  // simple highlight by wrapping occurrences with <mark>
+  // escape HTML
   let rendered = code.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   if (highlight) {
     const esc = highlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    rendered = rendered.replace(new RegExp(esc, "g"), (m) => `<mark class='bg-yellow-200 text-black'>${m}</mark>`);
+    rendered = rendered.replace(new RegExp(esc, "g"), (m) => `<mark class='bg-yellow-200 text-black rounded'>${m}</mark>`);
   }
 
   return (
     <div className="rounded-md overflow-hidden shadow-sm">
       <div className="bg-slate-900 text-white text-sm p-2">
-        <div dangerouslySetInnerHTML={{ __html: rendered.split("\n").map((l) => `${l}\n`).join("") }} />
+        <pre className="whitespace-pre-wrap break-words text-xs leading-5" dangerouslySetInnerHTML={{ __html: rendered }} />
       </div>
     </div>
   );

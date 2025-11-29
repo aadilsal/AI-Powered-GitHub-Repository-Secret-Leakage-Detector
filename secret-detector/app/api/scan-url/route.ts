@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Clean up cloned repository
     if (clonePath) {
-      cleanupRepo(clonePath);
+      await cleanupRepo(clonePath);
     }
 
     // Build stats
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Clean up on error
     if (clonePath) {
-      cleanupRepo(clonePath);
+      await cleanupRepo(clonePath);
     }
 
     console.error('Scan error:', error);

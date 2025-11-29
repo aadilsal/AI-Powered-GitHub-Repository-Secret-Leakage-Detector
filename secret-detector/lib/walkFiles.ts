@@ -31,12 +31,17 @@ const SKIP_EXTENSIONS = new Set([
  */
 export function walkFiles(dirPath: string): string[] {
   const files: string[] = [];
+  let fileCount = 0;
 
   function walk(currentPath: string) {
     try {
       const entries = fs.readdirSync(currentPath, { withFileTypes: true });
 
       for (const entry of entries) {
+        if (fileCount > 10000) {
+          console.warn('walkFiles: reached maximum file limit (10k), stopping traversal');
+          return;
+        }
         const fullPath = path.join(currentPath, entry.name);
 
         if (entry.isDirectory()) {
@@ -47,7 +52,29 @@ export function walkFiles(dirPath: string): string[] {
           const ext = path.extname(entry.name).toLowerCase();
           
           if (!SKIP_EXTENSIONS.has(ext)) {
-            files.push(fullPath);
+            // sanitize path
+            const normalized = path.normalize(fullPath);
+            if (!normalized.startsWith(path.normalize(dirPath))) continue;
+
+            // skip obvious binary files by checking first bytes
+            try {
+              const fd = fs.openSync(normalized, 'r');
+              const buf = Buffer.alloc(8);
+              const bytes = fs.readSync(fd, buf, 0, 8, 0);
+              fs.closeSync(fd);
+              // check for null byte
+              if (bytes > 0) {
+                let isBinary = false;
+                for (let i = 0; i < bytes; i++) if (buf[i] === 0) { isBinary = true; break; }
+                if (isBinary) continue;
+              }
+            } catch (e) {
+              // unable to open - skip
+              continue;
+            }
+
+            files.push(normalized);
+            fileCount++;
           }
         }
       }

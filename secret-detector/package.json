@@ -16,6 +16,10 @@
     "react": "^18",
     "react-dom": "^18",
     "react-syntax-highlighter": "^16.1.0",
+    "framer-motion": "^10.12.3",
+    "recharts": "^2.6.2",
+    "pdfkit": "^0.14.0",
+    "iconv-lite": "^0.6.3",
     "simple-git": "^3.30.0"
   },
   "devDependencies": {

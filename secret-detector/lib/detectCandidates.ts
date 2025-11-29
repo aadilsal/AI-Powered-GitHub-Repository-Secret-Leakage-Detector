@@ -44,7 +44,9 @@ export async function detectCandidates(filePaths: string[]): Promise<ScanFinding
       if (!isTextFile(filePath)) continue;
 
       const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n');
+      // support multiline for PEM-like files
+      const isPem = filePath.toLowerCase().endsWith('.pem') || content.includes('-----BEGIN');
+      const lines = isPem ? [content] : content.split('\n');
 
       for (let i = 0; i < lines.length; i++) {
         const raw = lines[i];
@@ -70,10 +72,11 @@ export async function detectCandidates(filePaths: string[]): Promise<ScanFinding
           console.log(`ML returned confidence=${ml.confidence}`);
           const { score, severity } = await import('./scoreSecret').then(s => s.scoreSecret({ regexMatch: regexResult.match, entropy, mlConfidence: ml.confidence }));
           console.log(`Computed hybrid score=${score} severity=${severity}`);
+          const masked = maskSecret(matchedText);
           const finding: ScanFinding = {
             filePath,
             lineNumber: i + 1,
-            content: line.substring(0, 1000),
+            content: maskContent(line, matchedText),
             entropy,
             regexMatch: regexResult.match,
             secretType: regexResult.type || 'GENERIC',
@@ -110,10 +113,11 @@ export async function detectCandidates(filePaths: string[]): Promise<ScanFinding
         console.log(`ML returned confidence=${ml.confidence}`);
         const { score, severity } = await import('./scoreSecret').then(s => s.scoreSecret({ regexMatch: undefined, entropy, mlConfidence: ml.confidence }));
         console.log(`Computed hybrid score=${score} severity=${severity}`);
+        const masked = maskSecret(value);
         const finding: ScanFinding = {
           filePath,
           lineNumber: i + 1,
-          content: line.substring(0, 1000),
+          content: maskContent(line, value),
           entropy,
           secretType: 'GENERIC',
           mlConfidence: ml.confidence,
@@ -125,6 +129,29 @@ export async function detectCandidates(filePaths: string[]): Promise<ScanFinding
       }
     } catch (err) {
       console.error(`Error scanning file ${filePath}: ${err instanceof Error ? err.message : 'Unknown'}`);
+    }
+  }
+
+  // helper: mask secret string partially (keep prefix and hide rest)
+  function maskSecret(s: string) {
+    if (!s) return s;
+    if (s.length <= 8) return s[0] + '*'.repeat(Math.max(1, s.length - 2)) + s.slice(-1);
+    const keep = 4;
+    return s.slice(0, keep) + '****' + s.slice(-keep);
+  }
+
+  function escapeHtml(str: string) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function maskContent(line: string, secret: string) {
+    try {
+      const esc = escapeHtml(line);
+      const s = escapeHtml(secret);
+      const masked = maskSecret(s);
+      return esc.split(s).join(masked);
+    } catch (e) {
+      return '***masked***';
     }
   }
 
