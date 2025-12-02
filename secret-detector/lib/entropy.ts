@@ -1,11 +1,6 @@
-/**
- * Shannon entropy calculation utilities
- */
-
 export function calculateEntropy(input: string): number {
   if (!input || input.length === 0) return 0;
 
-  // For very long strings limit the sample to keep cost reasonable
   const s = input.length > 5000 ? input.slice(0, 5000) : input;
   const len = s.length;
   const freq: Record<string, number> = {};

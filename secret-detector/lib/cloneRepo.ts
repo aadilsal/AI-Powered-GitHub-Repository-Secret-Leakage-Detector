@@ -12,21 +12,17 @@ export async function cloneRepo(repoUrl: string): Promise<string> {
   const randomId = randomBytes(16).toString('hex');
   const clonePath = path.join(process.cwd(), 'tmp', 'scanner', randomId);
 
-
   fs.mkdirSync(clonePath, { recursive: true });
 
   try {
     const git = simpleGit();
     console.log(`Cloning ${repoUrl} into ${clonePath}...`);
 
-
     if (!repoUrl.startsWith('http') && !repoUrl.includes('github.com') && !repoUrl.includes('gitlab.com') && !repoUrl.includes('bitbucket.org')) {
       throw new Error('Invalid repository URL');
     }
 
-
-    // Use a spawned git process so we can kill it on timeout and avoid lingering handles
-    const timeoutMs = 3 * 60_000; // 3 minutes
+    const timeoutMs = 3 * 60_000;
     const clonePromise = new Promise<void>((resolve, reject) => {
       let finished = false;
       let proc: ChildProcess | null = null;
@@ -51,7 +47,6 @@ export async function cloneRepo(repoUrl: string): Promise<string> {
         else onFinish(new Error(`git clone exited with code ${code}`));
       });
 
-      // Timeout handler kills the git process to allow cleanup
       timer = setTimeout(() => {
         if (!finished && proc) {
           try { proc.kill('SIGKILL'); } catch (e) {}
@@ -63,7 +58,6 @@ export async function cloneRepo(repoUrl: string): Promise<string> {
     await clonePromise;
 
     console.log(`Successfully cloned repository to ${clonePath}`);
-
 
     const dirSize = (dir: string): number => {
       let total = 0;
@@ -80,10 +74,9 @@ export async function cloneRepo(repoUrl: string): Promise<string> {
 
     try {
       const sizeBytes = dirSize(clonePath);
-      const maxBytes = 300 * 1024 * 1024; // 300MB
+      const maxBytes = 300 * 1024 * 1024;
       console.log(`Cloned repo size (bytes): ${sizeBytes}`);
       if (sizeBytes > maxBytes) {
-        // use async cleanup helper to be resilient on Windows
         await cleanupRepo(clonePath);
         throw new Error('Repository too large (>300MB)');
       }
@@ -104,21 +97,18 @@ export async function cloneRepo(repoUrl: string): Promise<string> {
 
 
 export async function cleanupRepo(clonePath: string): Promise<void> {
-  // Try removing up to several times to handle Windows file locks (EBUSY/EPERM)
   const maxAttempts = 6;
-  const baseDelay = 150; // ms
+  const baseDelay = 150;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       if (fs.existsSync(clonePath)) {
-        // prefer rmSync for simplicity but allow retries
         fs.rmSync(clonePath, { recursive: true, force: true });
       }
       console.log(`Cleaned up repository at ${clonePath}`);
       return;
     } catch (error: any) {
       const code = error && error.code ? error.code : null;
-      // If it's a transient Windows lock, wait and retry
       if (code === 'EBUSY' || code === 'EPERM' || code === 'ENOTEMPTY') {
         const delay = baseDelay * attempt;
         console.warn(`cleanupRepo attempt ${attempt} failed with ${code}, retrying in ${delay}ms`);
@@ -132,9 +122,8 @@ export async function cleanupRepo(clonePath: string): Promise<void> {
   console.error(`cleanupRepo: unable to remove ${clonePath} after ${maxAttempts} attempts, attempting platform-specific fallback`);
   try {
     if (process.platform === 'win32') {
-      // use cmd rmdir
       await execAsync(`cmd /c rmdir /s /q "${clonePath}"`);
-    } else {
+    } else{
       await execAsync(`rm -rf "${clonePath}"`);
     }
     console.log(`cleanupRepo: platform fallback succeeded for ${clonePath}`);

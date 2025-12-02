@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { checkRateLimit } from './lib/rateLimit';
 
-// Middleware to enforce rate limiting for scan endpoints
 export function middleware(request: NextRequest) {
   try {
-    // Only apply to API scan endpoints (matcher will scope this, but keep safe-check)
     const pathname = request.nextUrl.pathname || '';
     if (!pathname.startsWith('/api/scan-')) return NextResponse.next();
 
@@ -18,8 +16,6 @@ export function middleware(request: NextRequest) {
 
     return NextResponse.next();
   } catch (e) {
-    // On error, allow the request (fail-open) but log to console
-    // eslint-disable-next-line no-console
     console.warn('Rate limit middleware error, allowing request', e);
     return NextResponse.next();
   }

@@ -9,7 +9,6 @@ def load_model(path: str = None):
     if _model is not None:
         return _model
 
-    # Default model path: two levels up from ml-backend (repo root)
     if path is None:
         base = os.path.dirname(__file__)
         path = os.path.join(base, '..', '..', 'secret_detector_model.pkl')

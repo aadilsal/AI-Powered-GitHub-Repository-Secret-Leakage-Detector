@@ -3,7 +3,7 @@ export interface MLResult {
   confidence: number;
 }
 
-const DEFAULT_TIMEOUT = 3000; // ms
+const DEFAULT_TIMEOUT = 3000;
 
 export async function predictWithML(text: string, timeout = DEFAULT_TIMEOUT): Promise<MLResult> {
   const url = 'http://127.0.0.1:8000/predict';
@@ -35,7 +35,6 @@ export async function predictWithML(text: string, timeout = DEFAULT_TIMEOUT): Pr
       confidence: Number(data.confidence) || 0,
     };
   } catch {
-    // On error or timeout return neutral
     console.error('ML client: request failed or timed out, returning neutral');
     return { prediction: 0, confidence: 0 };
   }

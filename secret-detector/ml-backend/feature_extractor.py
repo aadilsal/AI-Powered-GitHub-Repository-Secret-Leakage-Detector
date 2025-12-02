@@ -1,11 +1,9 @@
 import math
 import re
 
-# simple entropy implementation
 def shannon_entropy(s: str) -> float:
     if not s:
         return 0.0
-    # limit length to reasonable sample
     sample = s if len(s) <= 5000 else s[:5000]
     freq = {}
     for ch in sample:
@@ -17,14 +15,12 @@ def shannon_entropy(s: str) -> float:
         entropy -= p * math.log2(p)
     return entropy
 
-# regex flags used in training
 AWS_ACCESS_KEY = re.compile(r"AKIA[0-9A-Z]{16}")
 GITHUB_PAT = re.compile(r"ghp_[0-9A-Za-z_]{36,}")
 JWT = re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
 
 
 def extract_features(text: str):
-    # basic normalization
     s = text or ""
     length = len(s)
     unique_chars = len(set(s))
@@ -48,7 +44,6 @@ def extract_features(text: str):
 
     print(f"feature_extractor: computed features length={length} entropy={entropy:.3f} aws_flag={aws_flag} github_flag={github_flag} jwt_flag={jwt_flag}")
 
-    # Return feature list in the same order expected by the model
     features = [
         length,
         char_diversity,

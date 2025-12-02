@@ -20,23 +20,20 @@ const payload = safeReadJson(inputPath) || {};
 const data = payload.data || payload;
 const meta = payload.meta || {};
 
-// Require pdfkit at runtime so bundlers don't try to inline it
 const PDFDocument = require('pdfkit');
 
 try {
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
 
-  // Pipe PDF binary to stdout
   doc.pipe(process.stdout);
 
-  // Header
+
   doc.fontSize(20).text(meta.projectTitle || data.repo || 'Scan Report', { align: 'left' });
   doc.moveDown(0.2);
   doc.fontSize(10).fillColor('grey').text(`Generated: ${new Date().toISOString()}`);
   if (meta.groupMembers) doc.text(`Group members: ${meta.groupMembers}`);
   doc.moveDown(0.8);
 
-  // Summary
   const total = data?.totalFindings ?? (data?.findings?.length ?? 0);
   const files = data?.totalFiles ?? (Array.from(new Set((data?.findings||[]).map((f)=>f.file || f.filePath))).length || 0);
   doc.fontSize(12).fillColor('black').text('Summary', { underline: true });
@@ -49,7 +46,6 @@ try {
   doc.text(`Regex matches: ${(data?.findings||[]).filter((f)=>f.regexMatch||f.regex).length}`);
   doc.moveDown(0.6);
 
-  // Severity counts
   const sevCounts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
   for (const f of data?.findings || []) {
     const s = (f.severity || '').toString().toUpperCase();
@@ -77,7 +73,6 @@ try {
 
   doc.moveDown(0.6);
 
-  // Top 10 secrets
   doc.fontSize(12).text('Top 10 secrets', { underline: true });
   doc.moveDown(0.2);
   const top = (data?.findings || []).slice(0).sort((a,b)=> (b.hybridScore||0)-(a.hybridScore||0)).slice(0,10);
@@ -94,7 +89,6 @@ try {
 
   doc.addPage();
 
-  // Remediation guidelines
   doc.fontSize(14).fillColor('black').text('Remediation Guidelines', { underline: true });
   doc.moveDown(0.3);
   const guidelines = [

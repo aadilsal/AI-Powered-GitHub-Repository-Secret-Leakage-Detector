@@ -9,12 +9,10 @@ export function scoreSecret({ regexMatch, entropy, mlConfidence }: { regexMatch?
 
   console.log(`Scoring secret: regex=${!!regexMatch} entropy=${entropy} mlConfidence=${mlConfidence}`);
 
-  // conservative regex boost, cap cumulative regex influence
   if (regexMatch) base += 0.35;
   if (entropy && entropy > 4.5) base += 0.18;
   else if (entropy && entropy > 3.5) base += 0.09;
 
-  // ensure score never exceeds 1 and avoid multiple regex inflation
   const finalScore = clamp(base, 0, 1);
 
   let severity: Severity = 'LOW';

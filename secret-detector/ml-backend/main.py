@@ -19,7 +19,6 @@ class PredictOut(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    # attempt to load model at startup
     try:
         load_model()
         print("Model loaded into memory")
@@ -37,12 +36,10 @@ async def predict(inobj: TextIn):
     if model is None:
         raise HTTPException(status_code=500, detail="Model not loaded")
 
-    # Some sklearn models expose predict_proba
     try:
         proba = None
         if hasattr(model, 'predict_proba'):
             proba = model.predict_proba([features])
-            # take positive class probability if binary
             if proba.shape[1] == 2:
                 confidence = float(proba[0, 1])
             else:
@@ -52,7 +49,6 @@ async def predict(inobj: TextIn):
         pred = int(model.predict([features])[0])
         print(f"ML server: prediction={pred} confidence={confidence}")
     except Exception as e:
-        # fallback: return neutral
         pred = 0
         confidence = 0.0
         print(f"ML server: prediction failed: {e}")

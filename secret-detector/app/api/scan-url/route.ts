@@ -9,11 +9,9 @@ export async function POST(request: NextRequest) {
   let clonePath: string | null = null;
 
   try {
-    // Parse request body
     const body: RepoScanRequest = await request.json();
     const { repoUrl } = body;
 
-    // Validate input
     if (!repoUrl || typeof repoUrl !== 'string') {
       return NextResponse.json(
         {
@@ -28,7 +26,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate GitHub URL
     if (!repoUrl.includes('github.com') && !repoUrl.includes('gitlab.com') && !repoUrl.includes('bitbucket.org')) {
       return NextResponse.json(
         {
@@ -45,25 +42,21 @@ export async function POST(request: NextRequest) {
 
     console.log(`Starting scan for repository: ${repoUrl}`);
 
-    // Clone the repository
     clonePath = await cloneRepo(repoUrl);
 
-    // Walk through files
     console.log('Walking through files...');
     const filePaths = walkFiles(clonePath);
     console.log(`Found ${filePaths.length} files to scan`);
 
-    // Detect secret candidates
     console.log('Detecting secret candidates...');
     const findings = await detectCandidates(filePaths);
     console.log(`Found ${findings.length} potential secret candidates`);
 
-    // Clean up cloned repository
     if (clonePath) {
       await cleanupRepo(clonePath);
     }
 
-    // Build stats
+
     const stats: Record<string, number> = { aws: 0, github_tokens: 0, jwt: 0, stripe: 0, database: 0 };
     for (const f of findings) {
       const t = (f.secretType || '').toLowerCase();
@@ -84,7 +77,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    // Clean up on error
     if (clonePath) {
       await cleanupRepo(clonePath);
     }

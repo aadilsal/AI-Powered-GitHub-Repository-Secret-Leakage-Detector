@@ -6,9 +6,6 @@ export interface ClassificationResult {
   match?: string;
 }
 
-/**
- * Run the input string against all secret patterns and return the first match
- */
 export function classifyByRegex(input: string): ClassificationResult {
   if (!input || typeof input !== 'string') return { matched: false };
 
@@ -19,7 +16,6 @@ export function classifyByRegex(input: string): ClassificationResult {
         return { matched: true, type: key, match: m[0] };
       }
     } catch {
-      // ignore invalid regexes or matching errors
       continue;
     }
   }

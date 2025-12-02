@@ -54,25 +54,20 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Extract the ZIP file
     extractPath = await extractZip(buffer);
 
-    // Walk through files
     console.log('Walking through files...');
     const filePaths = walkFiles(extractPath);
     console.log(`Found ${filePaths.length} files to scan`);
 
-    // Detect secret candidates
     console.log('Detecting secret candidates...');
     const findings = await detectCandidates(filePaths);
     console.log(`Found ${findings.length} potential secret candidates`);
 
-    // Clean up extracted files
     if (extractPath) {
       await cleanupExtract(extractPath);
     }
 
-    // Build stats
     const stats: Record<string, number> = { aws: 0, github_tokens: 0, jwt: 0, stripe: 0, database: 0 };
     for (const f of findings) {
       const t = (f.secretType || '').toLowerCase();
@@ -93,7 +88,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    // Clean up on error
     if (extractPath) {
       await cleanupExtract(extractPath);
     }

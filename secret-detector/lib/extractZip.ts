@@ -6,29 +6,20 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 const execAsync = promisify(exec);
 
-/**
- * Extracts a ZIP file into a temporary directory
- * @param fileBuffer - The ZIP file as a Buffer
- * @returns The path where the ZIP was extracted
- */
 export async function extractZip(fileBuffer: Buffer): Promise<string> {
-  // Generate a random ID for the extraction directory
   const randomId = randomBytes(16).toString('hex');
   const extractPath = path.join(process.cwd(), 'tmp', 'uploads', randomId);
 
-  // Ensure the directory exists
   fs.mkdirSync(extractPath, { recursive: true });
 
   try {
     console.log(`Extracting ZIP to ${extractPath}...`);
     
-    // Create ZIP instance from buffer
     const zip = new AdmZip(fileBuffer);
 
-    // Validate entries and enforce size/depth limits
     const entries = zip.getEntries();
-    const maxEntries = 10000; // safety
-    const maxFileBytes = 50 * 1024 * 1024; // 50MB per file
+    const maxEntries = 10000;
+    const maxFileBytes = 50 * 1024 * 1024;
     if (entries.length > maxEntries) throw new Error('ZIP archive has too many entries');
 
     for (const e of entries) {
@@ -37,13 +28,11 @@ export async function extractZip(fileBuffer: Buffer): Promise<string> {
       }
     }
 
-    // Extract all files
     zip.extractAllTo(extractPath, true);
     
     console.log(`Successfully extracted ZIP to ${extractPath}`);
     return extractPath;
   } catch (error) {
-    // Clean up on error (use resilient remove)
     if (fs.existsSync(extractPath)) {
       await cleanupExtract(extractPath);
     }
@@ -51,10 +40,6 @@ export async function extractZip(fileBuffer: Buffer): Promise<string> {
   }
 }
 
-/**
- * Cleans up an extracted ZIP directory
- * @param extractPath - The path to the extracted files
- */
 export async function cleanupExtract(extractPath: string): Promise<void> {
   const maxAttempts = 6;
   const baseDelay = 150;
@@ -77,7 +62,6 @@ export async function cleanupExtract(extractPath: string): Promise<void> {
       return;
     }
   }
-  // platform fallback
   try {
     if (process.platform === 'win32') {
       await execAsync(`cmd /c rmdir /s /q "${extractPath}"`);

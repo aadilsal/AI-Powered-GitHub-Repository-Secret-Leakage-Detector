@@ -3,8 +3,8 @@ import { NextRequest } from 'next/server';
 type RateMap = { count: number; windowStart: number };
 
 const MAP: Map<string, RateMap> = new Map();
-const LIMIT = 5; // scans
-const WINDOW_MS = 60 * 1000; // 1 minute
+const LIMIT = 5;
+const WINDOW_MS = 60 * 1000;
 
 export function checkRateLimit(req: NextRequest) {
   try {

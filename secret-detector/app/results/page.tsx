@@ -95,7 +95,15 @@ export default function ResultsPage() {
   return (
     <main className="container mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Scan Results</h2>
+        <div className="flex items-center gap-3">
+          <button onClick={() => window.location.href = '/'} className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Home
+          </button>
+          <h2 className="text-2xl font-bold">Scan Results</h2>
+        </div>
         <div className="flex items-center gap-3">
           <button onClick={() => downloadGenerated('json')} className="px-3 py-1 bg-slate-800 text-white rounded">Download JSON</button>
           <button onClick={() => downloadGenerated('pdf')} className="px-3 py-1 bg-sky-600 text-white rounded">Download PDF</button>
