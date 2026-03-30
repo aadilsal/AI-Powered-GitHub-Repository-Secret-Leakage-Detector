@@ -1,0 +1,37 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  ml:
+    build:
+      context: ./secret-detector/ml-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  web:
+    build:
+      context: ./secret-detector
+    ports:
+      - "3000:3000"
+    environment:
+      - ML_BASE_URL=http://ml:8000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+      - ml
+
+  worker:
+    build:
+      context: ./secret-detector
+      dockerfile: Dockerfile.worker
+    environment:
+      - ML_BASE_URL=http://ml:8000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+      - ml
+

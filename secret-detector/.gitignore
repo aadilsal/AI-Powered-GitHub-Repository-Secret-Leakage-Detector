@@ -28,6 +28,32 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# python
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+venv/
+ENV/
+.env
+pip-wheel-metadata/
+
+# python packaging
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# redis (local dev)
+dump.rdb
+appendonly.aof
+
+# logs
+logs/
+*.log
+
 # vercel
 .vercel
 

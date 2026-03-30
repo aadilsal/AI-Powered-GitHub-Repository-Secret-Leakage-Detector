@@ -1,4 +1,3 @@
-import simpleGit from 'simple-git';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomBytes } from 'crypto';
@@ -6,6 +5,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 const execAsync = promisify(exec);
 import { spawn, ChildProcess } from 'child_process';
+import { validateRepoUrl } from './validateRepoUrl';
 
 
 export async function cloneRepo(repoUrl: string): Promise<string> {
@@ -15,19 +15,26 @@ export async function cloneRepo(repoUrl: string): Promise<string> {
   fs.mkdirSync(clonePath, { recursive: true });
 
   try {
-    const git = simpleGit();
-    console.log(`Cloning ${repoUrl} into ${clonePath}...`);
-
-    if (!repoUrl.startsWith('http') && !repoUrl.includes('github.com') && !repoUrl.includes('gitlab.com') && !repoUrl.includes('bitbucket.org')) {
-      throw new Error('Invalid repository URL');
-    }
+    const { normalizedUrl, hostname } = validateRepoUrl(repoUrl);
+    console.log(`Cloning ${hostname} repository into ${clonePath}...`);
 
     const timeoutMs = 3 * 60_000;
     const clonePromise = new Promise<void>((resolve, reject) => {
       let finished = false;
       let proc: ChildProcess | null = null;
       try {
-        proc = spawn('git', ['clone', '--depth', '1', repoUrl, clonePath], { stdio: 'inherit' });
+        proc = spawn(
+          'git',
+          ['clone', '--depth', '1', '--filter=blob:none', '--no-tags', normalizedUrl, clonePath],
+          {
+            stdio: 'inherit',
+            env: {
+              ...process.env,
+              GIT_TERMINAL_PROMPT: '0',
+              GIT_ASKPASS: process.env.GIT_ASKPASS || 'echo',
+            },
+          }
+        );
       } catch (err) {
         return reject(err);
       }

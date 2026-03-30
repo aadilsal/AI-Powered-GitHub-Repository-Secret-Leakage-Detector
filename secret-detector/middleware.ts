@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { checkRateLimit } from './lib/rateLimit';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   try {
     const pathname = request.nextUrl.pathname || '';
-    if (!pathname.startsWith('/api/scan-')) return NextResponse.next();
+    if (!pathname.startsWith('/api/scan-') && !pathname.startsWith('/api/scans')) return NextResponse.next();
 
-    const rl = checkRateLimit(request as any);
+    const rl = await checkRateLimit(request as any);
     if (!rl.allowed) {
       const retry = rl.retryAfter ?? 60;
       const res = NextResponse.json({ error: `Rate limit exceeded, retry after ${retry}s` }, { status: 429 });
@@ -22,5 +22,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/scan-url', '/api/scan-upload'],
+  matcher: ['/api/scan-url', '/api/scan-upload', '/api/scans/:path*'],
 };

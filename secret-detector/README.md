@@ -33,6 +33,7 @@ Key components:
 ## Core features
 
 - Repo scanning by Git URL (`/api/scan-url`) and ZIP upload (`/api/scan-upload`)
+- Enterprise mode: async scan jobs (`/api/scans`) backed by Redis + worker
 - Regex-based detection using curated patterns
 - Entropy-based heuristics to surface high-entropy tokens
 - ML inference via local Python service to improve precision
@@ -64,6 +65,7 @@ Prerequisites:
 - Node.js (16+ recommended)
 - npm or yarn
 - Python 3.10+ (for ML backend)
+- Redis (required for async scan jobs)
 
 1) Frontend / API (Next.js)
 
@@ -94,7 +96,31 @@ python main.py
 
 The ML server listens at `http://127.0.0.1:8000` and exposes `/predict`.
 
-3) Optional: running in production
+3) Async scan worker (recommended)
+
+Run a Redis server and start the worker:
+
+```powershell
+cd "secret-detector"
+$env:REDIS_URL="redis://127.0.0.1:6379"
+npm run worker:scan
+```
+
+4) Optional: running with Docker (recommended)
+
+From repo root:
+
+```bash
+docker compose up --build
+```
+
+This starts:
+- web (Next.js) on `:3000`
+- ml (FastAPI) on `:8000`
+- redis on `:6379`
+- worker (scan jobs)
+
+5) Optional: running in production
 
 - Build the Next.js app and deploy to a Node hosting provider. Ensure the ML server is reachable from the Node host (or deploy ML as a separate service behind a secure internal network).
 
@@ -129,6 +155,10 @@ All API endpoints are server-side routes inside `app/api/`.
 
 - POST `/api/scan-url` — body: `{ "repoUrl": "https://github.com/owner/repo" }` — clones the repo and returns scan results JSON.
 - POST `/api/scan-upload` — multipart form-data with key `file` (ZIP) — extracts and scans the ZIP; returns results JSON.
+- POST `/api/scans` — async scan job creation (Redis required):
+  - body: `{ "kind": "url", "repoUrl": "https://github.com/owner/repo" }`
+  - body: `{ "kind": "zip", "fileName": "repo.zip", "zipBase64": "..." }`
+- GET `/api/scans/{scanId}` — job status; returns `{ status }` and `result` when completed
 - POST `/api/generate-report` — accepts JSON body `{ data, format?: 'json'|'pdf' }` and returns a downloadable JSON or PDF (PDF generator uses `scripts/generate-pdf.js`).
 - POST `/api/download-report` — returns a JSON blob suitable for direct download.
 

@@ -26,21 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!repoUrl.includes('github.com') && !repoUrl.includes('gitlab.com') && !repoUrl.includes('bitbucket.org')) {
-      return NextResponse.json(
-        {
-          repo: undefined,
-          totalFiles: 0,
-          totalFindings: 0,
-          findings: [],
-          stats: { aws: 0, github_tokens: 0, jwt: 0, stripe: 0, database: 0 },
-          error: 'Only GitHub, GitLab, and Bitbucket URLs are supported',
-        },
-        { status: 400 }
-      );
-    }
-
-    console.log(`Starting scan for repository: ${repoUrl}`);
+    console.log(`Starting scan for repository request`);
 
     clonePath = await cloneRepo(repoUrl);
 

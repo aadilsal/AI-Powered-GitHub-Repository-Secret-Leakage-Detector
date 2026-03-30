@@ -20,6 +20,38 @@ npm run dev
 
 The application will be available at: **http://localhost:3000**
 
+## Async scan jobs (enterprise mode)
+
+For production-like behavior (non-blocking scans), run Redis + the worker.
+
+### Option A: Docker (recommended)
+
+From repo root:
+
+```bash
+docker compose up --build
+```
+
+### Option B: Local processes
+
+1) Start Redis
+2) Start the ML backend (`ml-backend/`)
+3) Start the worker:
+
+```bash
+cd secret-detector
+export REDIS_URL="redis://127.0.0.1:6379"
+npm run worker:scan
+```
+
+4) Create a scan:
+
+```bash
+curl -X POST http://localhost:3000/api/scans \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"url","repoUrl":"https://github.com/octocat/Hello-World"}'
+```
+
 ## Usage
 
 ### Method 1: Scan a GitHub Repository
@@ -98,6 +130,18 @@ secret-detector/
 curl -X POST http://localhost:3000/api/scan-url \
   -H "Content-Type: application/json" \
   -d '{"repoUrl":"https://github.com/username/repo"}'
+```
+
+### POST /api/scans (async)
+```bash
+curl -X POST http://localhost:3000/api/scans \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"url","repoUrl":"https://github.com/username/repo"}'
+```
+
+### GET /api/scans/:scanId
+```bash
+curl http://localhost:3000/api/scans/<scanId>
 ```
 
 ### POST /api/scan-upload

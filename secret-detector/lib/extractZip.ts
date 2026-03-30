@@ -9,6 +9,7 @@ const execAsync = promisify(exec);
 export async function extractZip(fileBuffer: Buffer): Promise<string> {
   const randomId = randomBytes(16).toString('hex');
   const extractPath = path.join(process.cwd(), 'tmp', 'uploads', randomId);
+  const root = path.resolve(extractPath);
 
   fs.mkdirSync(extractPath, { recursive: true });
 
@@ -20,15 +21,36 @@ export async function extractZip(fileBuffer: Buffer): Promise<string> {
     const entries = zip.getEntries();
     const maxEntries = 10000;
     const maxFileBytes = 50 * 1024 * 1024;
+    const maxTotalBytes = 200 * 1024 * 1024;
     if (entries.length > maxEntries) throw new Error('ZIP archive has too many entries');
 
+    let totalBytes = 0;
     for (const e of entries) {
       if (e.header && e.header.size && e.header.size > maxFileBytes) {
         throw new Error('ZIP contains a too-large file');
       }
+      if (e.header && typeof e.header.size === 'number') {
+        totalBytes += e.header.size;
+        if (totalBytes > maxTotalBytes) throw new Error('ZIP uncompressed size exceeds limit');
+      }
     }
+    
+    for (const e of entries) {
+      const entryName = (e.entryName || '').replace(/\\/g, '/');
+      if (!entryName || entryName.endsWith('/')) continue;
 
-    zip.extractAllTo(extractPath, true);
+      const destPath = path.resolve(root, entryName);
+      const rootWithSep = root.endsWith(path.sep) ? root : root + path.sep;
+      if (destPath !== root && !destPath.startsWith(rootWithSep)) {
+        throw new Error('ZIP contains an invalid entry path');
+      }
+
+      const dir = path.dirname(destPath);
+      fs.mkdirSync(dir, { recursive: true });
+
+      const data = e.getData();
+      fs.writeFileSync(destPath, data);
+    }
     
     console.log(`Successfully extracted ZIP to ${extractPath}`);
     return extractPath;

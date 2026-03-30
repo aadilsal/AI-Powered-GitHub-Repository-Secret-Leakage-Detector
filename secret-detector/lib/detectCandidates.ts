@@ -36,7 +36,7 @@ export async function detectCandidates(filePaths: string[]): Promise<ScanFinding
 
   for (const filePath of filePaths) {
     try {
-      console.log(`Scanning file: ${filePath}`);
+      // Avoid logging file paths or candidate content (may contain sensitive data)
       if (!isTextFile(filePath)) continue;
 
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -56,15 +56,11 @@ export async function detectCandidates(filePaths: string[]): Promise<ScanFinding
         if (regexResult.matched) {
           const matchedText = regexResult.match || line;
           const entropy = calculateEntropy(matchedText);
-          console.log(`Regex matched in ${filePath}:${i+1} -> ${regexResult.type} match=${matchedText.slice(0,60)}`);
-          console.log('Calling ML for regex match...');
           const ml = await import('./mlClient').then(m => m.predictWithML(matchedText)).catch((err) => {
             console.error('ML call failed:', err?.message || err);
             return { prediction: 0, confidence: 0 };
           });
-          console.log(`ML returned confidence=${ml.confidence}`);
           const { score, severity } = await import('./scoreSecret').then(s => s.scoreSecret({ regexMatch: regexResult.match, entropy, mlConfidence: ml.confidence }));
-          console.log(`Computed hybrid score=${score} severity=${severity}`);
           const masked = maskSecret(matchedText);
           const finding: ScanFinding = {
             filePath,
@@ -93,15 +89,11 @@ export async function detectCandidates(filePaths: string[]): Promise<ScanFinding
         const entropy = calculateEntropy(value);
         if (entropy <= 3.5) continue;
 
-        console.log(`Heuristic candidate in ${filePath}:${i+1} value=${value.slice(0,60)} entropy=${entropy}`);
-        console.log('Calling ML for heuristic candidate...');
         const ml = await import('./mlClient').then(m => m.predictWithML(value)).catch((err) => {
           console.error('ML call failed:', err?.message || err);
           return { prediction: 0, confidence: 0 };
         });
-        console.log(`ML returned confidence=${ml.confidence}`);
         const { score, severity } = await import('./scoreSecret').then(s => s.scoreSecret({ regexMatch: undefined, entropy, mlConfidence: ml.confidence }));
-        console.log(`Computed hybrid score=${score} severity=${severity}`);
         const masked = maskSecret(value);
         const finding: ScanFinding = {
           filePath,
